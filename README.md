@@ -1,38 +1,12 @@
-# GRRIEn_template
-Template that can be used GRRIEn model development
+# kriging
+
+**Author:** Clay Caldwell  
+**Contact:** wccaldwe@syr.edu  
+**Organization:** Syracuse University  
+**Website:** [LinkedIn](https://www.linkedin.com/in/clay-caldwell-9530011a3/)
 
 **Background:**
-Describe the project and give an overview
+Some 2-dimensional kriging implementations using GSTools and PyKrige for generating surfaces from geospatial point data and assocaited boundary shapefiles. These can be applied to any point clouds which contain XY coordinate positions and a continuous Z variable you want to predict.
 
 **Instructions:**
-Give an overview of the repository structure amd use cases
-
-## 1. Run ./code/setup.sh
-
-
-## 2. Source the needed data using ./code/source_data
-
-
-## 3. Process the sourced data using ./code/procces_data
-
-
-## 4. Train the model using ./code/train_model
-
-
-## 5. Visualize the results of the trained model using ./code/visualize
-
-
-## Contact info
-Put contact information here. Preferably email/phone, and maybe social media?
-
-## Preferred Citation Format
-Put the preferred citation format for this repo here
-
-## Change request policy
-Put the change request policy info here
-
-## License information
-Put the licensing information (AGPL-3.0) here
-
-## References and datasets
-Reference used code bases and other citations
+*kriging.ipynb* is the main file you should use. Within the *src* directory you will find 3 .py files containing the Ordinary Kriging, Universal Kriging, and Regression Kriging implementations.
