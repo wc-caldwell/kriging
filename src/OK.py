@@ -19,8 +19,7 @@ from shapely import contains_xy
 import rasterio
 from rasterio.transform import from_origin
 import json
-# from rasterio.mask import mask
-# from shapely.geometry import box
+from sklearn.metrics import mean_squared_error, r2_score
 import gc
 
 class OK_AIC:
@@ -404,3 +403,40 @@ class OK_AIC:
 
         plt.tight_layout()
         plt.show()
+
+
+def ok_loocv(x, y, z, boundary_gdf, vario_models, vario_estimator='cressie', grid_res=10.0):
+    """LOOCV for Ordinary Kriging."""
+    n = len(z)
+    predictions = np.zeros(n)
+    actuals = z.copy()
+    
+    for i in range(n):
+        # Leave-one-out training set
+        mask = np.arange(n) != i
+        x_train, y_train, z_train = x[mask], y[mask], z[mask]
+        
+        # Predict at held-out point
+        ok = OK_AIC(
+            vario_models, x_train, y_train, z_train, boundary_gdf,
+            "dummy_pred.tif", "dummy_var.tif",
+            vario_estimator=vario_estimator, grid_res=grid_res
+        )
+        ok._fit_variograms()  # Just fit variogram, don't full generate
+        ok.krige_model = OrdinaryKriging(
+            x_train, y_train, z_train,
+            variogram_model=ok.fit_model,
+            coordinates_type='euclidean'
+        )
+        
+        z_pred, _ = ok.krige_model.execute(
+            style='points', xpoints=np.array([x[i]]), ypoints=np.array([y[i]]),
+            backend='vectorized'
+        )
+        predictions[i] = z_pred[0]
+    
+    rmse = np.sqrt(mean_squared_error(actuals, predictions))
+    mae = np.mean(np.abs(actuals - predictions))
+    r2 = r2_score(actuals, predictions)
+    
+    return {'predictions': predictions, 'actuals': actuals, 'rmse': rmse, 'mae': mae, 'r2': r2}

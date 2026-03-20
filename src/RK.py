@@ -27,6 +27,8 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, Ridge
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR
+from sklearn.metrics import mean_squared_error, r2_score
+
 
 
 class RK_AIC:
@@ -462,3 +464,62 @@ class RK_AIC:
 
         plt.tight_layout()
         plt.show()
+
+
+def rk_loocv(x, y, z, boundary_gdf, regression_model, vario_models, 
+             vario_estimator='cressie', grid_res=10.0):
+    """LOOCV for Regression Kriging."""
+    n = len(z)
+    predictions = np.zeros(n)
+    actuals = z.copy()
+    
+    for i in range(n):
+        mask = np.arange(n) != i
+        x_train, y_train, z_train = x[mask], y[mask], z[mask]
+        
+        rk = RK_AIC(
+            x_train, y_train, z_train, boundary_gdf,
+            "dummy_pred.tif", "dummy_var.tif",
+            regression_model=regression_model,
+            vario_models=vario_models,
+            vario_estimator=vario_estimator,
+            grid_res=grid_res
+        )
+        
+        # Fit trend
+        predictors = np.column_stack((x_train, y_train)).astype(np.float64)
+        rk.reg_model = rk._resolve_regression_model()
+        rk.reg_model.fit(predictors, z_train.astype(np.float64))
+        
+        # Fit residual variogram
+        reg_pred_train = rk.reg_model.predict(predictors)
+        residuals_train = z_train.astype(np.float64) - reg_pred_train
+        rk.coordinates = (x_train.astype(np.float32), y_train.astype(np.float32))
+        rk.Z = residuals_train.astype(np.float32)
+        rk.max_lag = np.sqrt(
+            (x_train.max() - x_train.min())**2 + (y_train.max() - y_train.min())**2
+        ) / 2
+        
+        rk._fit_variograms(residuals_train)
+        
+        # Predict: trend + residual kriging
+        x_test = np.array([x[i]]).astype(np.float64)
+        y_test = np.array([y[i]]).astype(np.float64)
+        
+        trend_pred = rk.reg_model.predict(np.column_stack((x_test, y_test)))[0]
+        
+        ok_resid = OrdinaryKriging(
+            x_train.astype(np.float64), y_train.astype(np.float64),
+            residuals_train, variogram_model=rk.fit_model
+        )
+        resid_pred, _ = ok_resid.execute(
+            style='points', xpoints=x_test, ypoints=y_test, backend='vectorized'
+        )
+        
+        predictions[i] = trend_pred + resid_pred[0]
+    
+    rmse = np.sqrt(mean_squared_error(actuals, predictions))
+    mae = np.mean(np.abs(actuals - predictions))
+    r2 = r2_score(actuals, predictions)
+    
+    return {'predictions': predictions, 'actuals': actuals, 'rmse': rmse, 'mae': mae, 'r2': r2}

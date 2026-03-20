@@ -19,6 +19,7 @@ from shapely import contains_xy
 import rasterio
 from rasterio.transform import from_origin
 import json
+from sklearn.metrics import mean_squared_error, r2_score
 import gc
 
 
@@ -377,3 +378,41 @@ class UK_AIC:
 
 		plt.tight_layout()
 		plt.show()
+		
+
+def uk_loocv(x, y, z, boundary_gdf, vario_models, trend_model='regional_linear', 
+             vario_estimator='cressie', grid_res=10.0):
+    """LOOCV for Universal Kriging."""
+    n = len(z)
+    predictions = np.zeros(n)
+    actuals = z.copy()
+    
+    for i in range(n):
+        mask = np.arange(n) != i
+        x_train, y_train, z_train = x[mask], y[mask], z[mask]
+        
+        uk = UK_AIC(
+            vario_models, x_train, y_train, z_train, boundary_gdf,
+            "dummy_pred.tif", "dummy_var.tif",
+            trend_model=trend_model, vario_estimator=vario_estimator, grid_res=grid_res
+        )
+        uk._fit_variograms()
+        drift_terms = uk._resolve_drift_terms()
+        
+        uk.krige_model = UniversalKriging(
+            x_train, y_train, z_train,
+            variogram_model=uk.fit_model,
+            drift_terms=drift_terms
+        )
+        
+        z_pred, _ = uk.krige_model.execute(
+            style='points', xpoints=np.array([x[i]]), ypoints=np.array([y[i]]),
+            backend='vectorized'
+        )
+        predictions[i] = z_pred[0]
+    
+    rmse = np.sqrt(mean_squared_error(actuals, predictions))
+    mae = np.mean(np.abs(actuals - predictions))
+    r2 = r2_score(actuals, predictions)
+    
+    return {'predictions': predictions, 'actuals': actuals, 'rmse': rmse, 'mae': mae, 'r2': r2}
