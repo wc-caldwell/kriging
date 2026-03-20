@@ -1,0 +1,21 @@
+name: default
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+- pip >=26.0.1,<27
+- ipykernel >=7.2.0,<8
+- jupyter >=1.1.1,<2
+- numpy >=2.4.3,<3
+- pandas >=3.0.1,<4
+- geopandas >=1.1.3,<2
+- rasterio >=1.5.0,<2
+- shapely >=2.1.2,<3
+- matplotlib >=3.10.8,<4
+- seaborn >=0.13.2,<0.14
+- fiona >=1.10.1,<2
+- pip
+- pip:
+  - verde>=1.9.0, <2
+  - gstools>=1.7.0, <2
+  - pykrige>=1.7.3, <2
